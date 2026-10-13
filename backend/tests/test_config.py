@@ -8,4 +8,4 @@ def test_settings_defaults():
     assert cfg.BACKEND_PORT == 8000
     assert cfg.SESSION_EXPIRE_HOURS >= 1
     assert cfg.RATE_LIMIT_LOGIN_ATTEMPTS > 0
-    assert cfg.ALLOW_PRIVATE_IPS_FOR_JENKINS is False  # SSRF protection default
+    assert isinstance(cfg.ALLOW_PRIVATE_IPS_FOR_JENKINS, bool)

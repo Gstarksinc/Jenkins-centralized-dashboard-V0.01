@@ -74,7 +74,7 @@ docker compose up -d --build
 # 5. Wait for Healthcheck
 echo -e "\n${CYAN}[4/5] Waiting for services to become healthy...${NC}"
 for i in {1..30}; do
-    if curl -s http://127.0.0.1:8000/api/v1/health/live &> /dev/null; then
+    if curl -s http://0.0.0.0:8000/api/v1/health/live &> /dev/null; then
         echo -e "${GREEN}✓ Backend API is responding!${NC}"
         break
     fi

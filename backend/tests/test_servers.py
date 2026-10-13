@@ -3,8 +3,12 @@ from app.core.security import decrypt_secret
 from app.models.credential import CredentialReference
 
 
-def test_test_connection_ssrf_blocked(client):
-    """Verify test-connection endpoint blocks private IP destinations."""
+from app.config import settings
+
+
+def test_test_connection_ssrf_blocked(client, monkeypatch):
+    """Verify test-connection endpoint blocks private IP destinations when private IPs restricted."""
+    monkeypatch.setattr(settings, "ALLOW_PRIVATE_IPS_FOR_JENKINS", False)
     payload = {
         "base_url": "http://127.0.0.1:8080",
         "username": "admin",

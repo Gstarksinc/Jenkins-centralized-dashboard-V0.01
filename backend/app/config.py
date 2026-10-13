@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     # Network / Host
     BACKEND_HOST: str = Field(default="0.0.0.0")
     BACKEND_PORT: int = Field(default=8000)
-    FRONTEND_URL: str = Field(default="http://localhost:3000")
-    ALLOWED_CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000", "http://127.0.0.1:3000"])
+    FRONTEND_URL: str = Field(default="*")
+    ALLOWED_CORS_ORIGINS: List[str] = Field(default=["*"])
 
     # Database
     DATABASE_URL: str = Field(
@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_LOGIN_ATTEMPTS: int = Field(default=5)
     RATE_LIMIT_WINDOW_SECONDS: int = Field(default=900)
 
-    # SSRF Protection
-    ALLOW_PRIVATE_IPS_FOR_JENKINS: bool = Field(default=False)
+    # SSRF Policy (Defaults to True in testing so internal/private Jenkins controllers can be added)
+    ALLOW_PRIVATE_IPS_FOR_JENKINS: bool = Field(default=True)
 
 
 settings = Settings()

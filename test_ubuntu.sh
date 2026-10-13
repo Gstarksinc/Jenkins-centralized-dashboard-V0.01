@@ -34,14 +34,14 @@ else
 fi
 
 echo -e "\n${CYAN}[2/3] Checking API health endpoints...${NC}"
-LIVE_RES=$(curl -s http://127.0.0.1:8000/api/v1/health/live || echo "unreachable")
+LIVE_RES=$(curl -s http://0.0.0.0:8000/api/v1/health/live || echo "unreachable")
 echo "Liveness Response: $LIVE_RES"
 
-READY_RES=$(curl -s http://127.0.0.1:8000/api/v1/health/ready || echo "unreachable")
+READY_RES=$(curl -s http://0.0.0.0:8000/api/v1/health/ready || echo "unreachable")
 echo "Readiness Response: $READY_RES"
 
 echo -e "\n${CYAN}[3/3] Checking Frontend HTTP response...${NC}"
-FRONTEND_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000 || echo "failed")
+FRONTEND_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://0.0.0.0:3000 || echo "failed")
 if [ "$FRONTEND_CODE" = "200" ]; then
     echo -e "${GREEN}✓ Frontend is serving index.html (HTTP 200)${NC}"
 else
