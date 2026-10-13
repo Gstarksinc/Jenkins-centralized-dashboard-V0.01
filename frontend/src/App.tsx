@@ -1,7 +1,10 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { ApplicationLayout } from './layouts/ApplicationLayout';
+import { LoginPage } from './pages/LoginPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { ServersPage } from './pages/ServersPage';
 import { NodesPage } from './pages/NodesPage';
@@ -27,25 +30,35 @@ const queryClient = new QueryClient({
 export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<ApplicationLayout />}>
-            <Route index element={<OverviewPage />} />
-            <Route path="servers" element={<ServersPage />} />
-            <Route path="nodes" element={<NodesPage />} />
-            <Route path="jobs" element={<JobsPage />} />
-            <Route path="builds" element={<BuildsPage />} />
-            <Route path="users" element={<UsersPage />} />
-            <Route path="roles" element={<RolesPage />} />
-            <Route path="alerts" element={<AlertsPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
-            <Route path="audit" element={<AuditPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="integrations" element={<IntegrationsPage />} />
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Login Route */}
+            <Route path="/login" element={<LoginPage />} />
+
+            {/* Authenticated Dashboard Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<ApplicationLayout />}>
+                <Route index element={<OverviewPage />} />
+                <Route path="servers" element={<ServersPage />} />
+                <Route path="nodes" element={<NodesPage />} />
+                <Route path="jobs" element={<JobsPage />} />
+                <Route path="builds" element={<BuildsPage />} />
+                <Route path="users" element={<UsersPage />} />
+                <Route path="roles" element={<RolesPage />} />
+                <Route path="alerts" element={<AlertsPage />} />
+                <Route path="analytics" element={<AnalyticsPage />} />
+                <Route path="audit" element={<AuditPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="integrations" element={<IntegrationsPage />} />
+              </Route>
+            </Route>
+
+            {/* Catch-all redirect */}
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </QueryClientProvider>
   );
 };

@@ -142,6 +142,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         status=user.status,
         is_bootstrap_admin=user.is_bootstrap_admin,
         roles=role_names,
+        session_token=session_token,
     )
 
 

@@ -21,6 +21,7 @@ class UserProfileResponse(BaseModel):
     is_bootstrap_admin: bool
     roles: List[str] = []
     permissions: List[str] = []
+    session_token: Optional[str] = None
 
 
 class AuditEventResponse(BaseModel):

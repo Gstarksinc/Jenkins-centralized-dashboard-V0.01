@@ -1,3 +1,20 @@
+export function getAuthToken(): string | null {
+  return localStorage.getItem('jcc_token');
+}
+
+export function setAuthToken(token: string | null): void {
+  if (token) {
+    localStorage.setItem('jcc_token', token);
+  } else {
+    localStorage.removeItem('jcc_token');
+  }
+}
+
+export function clearAuth(): void {
+  localStorage.removeItem('jcc_token');
+  localStorage.removeItem('jcc_user');
+}
+
 export async function apiFetch<T>(
   url: string,
   options?: RequestInit
@@ -7,8 +24,14 @@ export async function apiFetch<T>(
     headers.set('Content-Type', 'application/json');
   }
 
+  const token = getAuthToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   const response = await fetch(url, {
     ...options,
+    credentials: 'include',
     headers,
   });
 
