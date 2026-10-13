@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, ForeignKey, BigInteger, JSON
+from sqlalchemy import Column, String, DateTime, ForeignKey, BigInteger, Integer, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base import Base
@@ -9,7 +9,7 @@ from app.db.base import Base
 class AuditEvent(Base):
     __tablename__ = "audit_events"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     correlation_id = Column(UUID(as_uuid=True), default=uuid.uuid4, nullable=False, index=True)
     actor_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     action = Column(String(100), nullable=False, index=True)

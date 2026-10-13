@@ -222,3 +222,22 @@ async def test_existing_server_connection(server_id: UUID, db: Session = Depends
         message=result["message"],
         description=result.get("description"),
     )
+
+
+@router.post("/{server_id}/sync")
+async def trigger_server_sync(server_id: UUID, db: Session = Depends(get_db)):
+    """Trigger an immediate data ingestion sync for this Jenkins controller."""
+    server = db.execute(select(JenkinsServer).where(JenkinsServer.id == server_id)).scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jenkins server not found.")
+
+    try:
+        from app.workers.tasks_sync import sync_single_server_task
+        sync_single_server_task.delay(str(server_id))
+    except Exception:
+        # Fallback to direct async run if broker is unavailable
+        from app.workers.tasks_sync import _run_sync
+        await _run_sync(str(server_id))
+
+    return {"message": f"Sync initiated for controller '{server.name}'", "server_id": str(server_id)}
+

@@ -105,6 +105,23 @@ export const ServersPage: React.FC = () => {
     },
   });
 
+  // 5. Trigger Sync Mutation
+  const syncMutation = useMutation({
+    mutationFn: (serverId: string) =>
+      apiFetch<{ message: string }>(`/api/v1/servers/${serverId}/sync`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['nodes'] });
+    },
+    onError: (err: Error) => {
+      alert(`Sync failed: ${err.message}`);
+    },
+  });
+
   const resetForm = () => {
     setName('');
     setBaseUrl('');
@@ -282,6 +299,14 @@ export const ServersPage: React.FC = () => {
                         : 'Never'}
                     </td>
                     <td className="px-5 py-3.5 text-right space-x-2">
+                      <button
+                        onClick={() => syncMutation.mutate(s.id)}
+                        disabled={syncMutation.isPending}
+                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-800 disabled:opacity-50"
+                        title="Trigger Data Collection Sync"
+                      >
+                        {syncMutation.isPending ? 'Syncing...' : 'Sync'}
+                      </button>
                       <button
                         onClick={() => retestMutation.mutate(s.id)}
                         disabled={retestMutation.isPending}
