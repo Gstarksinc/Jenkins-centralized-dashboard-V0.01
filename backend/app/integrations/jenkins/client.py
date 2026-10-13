@@ -82,15 +82,43 @@ class JenkinsClient:
                 }
 
     async def fetch_jobs_and_builds(self) -> List[Dict[str, Any]]:
-        """Fetch all jobs, folders, and recent build history from controller."""
+        """Fetch all jobs, folders, and recent build history from controller recursively."""
         validate_jenkins_url(self.base_url)
-        tree_query = "jobs[name,url,color,_class,buildable,lastBuild[number,result,timestamp,duration,url],lastSuccessfulBuild[number],lastFailedBuild[number]]"
+        tree_query = (
+            "jobs[name,url,color,_class,buildable,"
+            "lastBuild[number,result,timestamp,duration,url],"
+            "lastSuccessfulBuild[number],lastFailedBuild[number],"
+            "jobs[name,url,color,_class,buildable,lastBuild[number,result,timestamp,duration,url],lastSuccessfulBuild[number],lastFailedBuild[number]]]"
+        )
         async with httpx.AsyncClient(timeout=self.timeout_seconds, verify=self.verify_ssl) as client:
-            resp = await client.get(f"{self.base_url}/api/json?tree={tree_query}", auth=self._get_auth())
-            if resp.status_code != 200:
+            try:
+                resp = await client.get(f"{self.base_url}/api/json?tree={tree_query}", auth=self._get_auth())
+            except Exception:
+                resp = None
+
+            if not resp or resp.status_code != 200:
+                # Fallback to simple /api/json if detailed tree query fails
+                try:
+                    fallback_resp = await client.get(f"{self.base_url}/api/json", auth=self._get_auth())
+                    if fallback_resp.status_code == 200:
+                        return fallback_resp.json().get("jobs", [])
+                except Exception:
+                    pass
                 return []
+
             data = resp.json()
-            return data.get("jobs", [])
+            raw_jobs = data.get("jobs", [])
+
+            # Flatten any nested folder jobs
+            flattened: List[Dict[str, Any]] = []
+            for item in raw_jobs:
+                if item.get("jobs"):
+                    for sub in item.get("jobs", []):
+                        sub["folder"] = item.get("name")
+                        flattened.append(sub)
+                flattened.append(item)
+
+            return flattened
 
     async def fetch_nodes(self) -> List[Dict[str, Any]]:
         """Fetch all computers/agents and executor loads."""

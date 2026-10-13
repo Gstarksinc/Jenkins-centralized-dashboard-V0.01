@@ -121,6 +121,14 @@ async def create_server(payload: JenkinsServerCreate, db: Session = Depends(get_
     db.add(credential)
     db.commit()
     db.refresh(server)
+
+    # Trigger initial data collection sync immediately so jobs & nodes show up right away
+    try:
+        from app.workers.tasks_sync import sync_single_server_task
+        sync_single_server_task.apply_async(args=[str(server.id)], retry=False)
+    except Exception:
+        pass
+
     return server
 
 
@@ -233,7 +241,7 @@ async def trigger_server_sync(server_id: UUID, db: Session = Depends(get_db)):
 
     try:
         from app.workers.tasks_sync import sync_single_server_task
-        sync_single_server_task.delay(str(server_id))
+        sync_single_server_task.apply_async(args=[str(server_id)], retry=False)
     except Exception:
         # Fallback to direct async run if broker is unavailable
         from app.workers.tasks_sync import _run_sync

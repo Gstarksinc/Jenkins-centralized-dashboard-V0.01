@@ -1,16 +1,33 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { GitBranch, Play, Search, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  GitBranch,
+  Play,
+  Search,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  Server,
+  FolderGit2,
+  ExternalLink,
+} from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { apiFetch } from '../api/client';
-import { Job } from '../types';
+import { Job, JenkinsServer } from '../types';
 
 export const JobsPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const [selectedServerId, setSelectedServerId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // 1. Fetch Jobs
+  // 1. Fetch Registered Servers for Dropdown
+  const { data: servers = [] } = useQuery<JenkinsServer[]>({
+    queryKey: ['servers'],
+    queryFn: () => apiFetch<JenkinsServer[]>('/api/v1/servers'),
+  });
+
+  // 2. Fetch Jobs (Filtered by Server if selected)
   const {
     data: jobs = [],
     isLoading,
@@ -19,12 +36,17 @@ export const JobsPage: React.FC = () => {
     refetch,
     isFetching,
   } = useQuery<Job[]>({
-    queryKey: ['jobs'],
-    queryFn: () => apiFetch<Job[]>('/api/v1/jobs'),
+    queryKey: ['jobs', selectedServerId],
+    queryFn: () => {
+      const url = selectedServerId
+        ? `/api/v1/jobs?server_id=${selectedServerId}`
+        : '/api/v1/jobs';
+      return apiFetch<Job[]>(url);
+    },
     refetchInterval: 15000,
   });
 
-  // 2. Trigger Build Mutation
+  // 3. Trigger Build Mutation
   const triggerMutation = useMutation({
     mutationFn: (jobId: string) =>
       apiFetch<{ message: string; job_id: string }>(`/api/v1/jobs/${jobId}/build`, {
@@ -42,10 +64,44 @@ export const JobsPage: React.FC = () => {
     },
   });
 
+  // 4. Trigger Ingestion Sync Mutation
+  const syncMutation = useMutation({
+    mutationFn: async (serverId: string) => {
+      if (serverId) {
+        return apiFetch<{ message: string }>(`/api/v1/servers/${serverId}/sync`, { method: 'POST' });
+      } else {
+        // Trigger sync across all servers
+        for (const s of servers) {
+          await apiFetch<{ message: string }>(`/api/v1/servers/${s.id}/sync`, { method: 'POST' });
+        }
+        return { message: 'Sync initiated for all controllers.' };
+      }
+    },
+    onSuccess: (data) => {
+      setActionMessage({
+        type: 'success',
+        text: data?.message || 'Sync initiated. Ingesting jobs from Jenkins...',
+      });
+      // Invalidate queries so fresh jobs load
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['jobs'] });
+        queryClient.invalidateQueries({ queryKey: ['servers'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      }, 1500);
+      setTimeout(() => setActionMessage(null), 5000);
+    },
+    onError: (err: Error) => {
+      setActionMessage({ type: 'error', text: err.message || 'Failed to initiate sync.' });
+      setTimeout(() => setActionMessage(null), 5000);
+    },
+  });
+
   const filteredJobs = jobs.filter((j) =>
     j.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (j.server_name && j.server_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const selectedServer = servers.find((s) => s.id === selectedServerId);
 
   return (
     <div className="space-y-6">
@@ -54,10 +110,19 @@ export const JobsPage: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Jobs & Pipelines</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Aggregated job definitions and on-demand build triggers across registered controllers
+            Browse and trigger CI/CD jobs across registered controllers
           </p>
         </div>
         <div className="flex items-center space-x-2">
+          <button
+            onClick={() => syncMutation.mutate(selectedServerId)}
+            disabled={syncMutation.isPending || servers.length === 0}
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition disabled:opacity-50"
+            title="Fetch latest jobs from Jenkins controller"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+            <span>{syncMutation.isPending ? 'Syncing...' : 'Sync Jobs Now'}</span>
+          </button>
           <button
             onClick={() => refetch()}
             disabled={isFetching}
@@ -87,38 +152,87 @@ export const JobsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Filter Toolbar */}
-      <div className="flex items-center space-x-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+      {/* Filter Toolbar with Server Selector Dropdown */}
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center gap-3">
+        {/* Server Dropdown Selector */}
+        <div className="flex items-center space-x-2 min-w-[260px]">
+          <Server className="w-4 h-4 text-slate-400 shrink-0" />
+          <div className="flex-1">
+            <select
+              value={selectedServerId}
+              onChange={(e) => setSelectedServerId(e.target.value)}
+              className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">All Jenkins Controllers ({servers.length})</option>
+              {servers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.status})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Search Input */}
         <div className="flex-1 relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search jobs by name or controller..."
+            placeholder="Search jobs by name..."
             className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
-        <span className="text-xs text-slate-500 font-medium">
-          {filteredJobs.length} of {jobs.length} jobs
+
+        <span className="text-xs text-slate-500 font-medium whitespace-nowrap self-center">
+          {filteredJobs.length} {filteredJobs.length === 1 ? 'job' : 'jobs'} found
         </span>
       </div>
 
       {/* Table Content */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-xs text-slate-500">Loading CI/CD jobs...</div>
+          <div className="p-8 text-center text-xs text-slate-500 flex items-center justify-center space-x-2">
+            <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" />
+            <span>Loading CI/CD jobs...</span>
+          </div>
         ) : isError ? (
           <div className="p-8 text-center text-xs text-rose-600">
             Failed to load jobs: {(error as Error)?.message}
           </div>
+        ) : servers.length === 0 ? (
+          <div className="p-12 text-center">
+            <Server className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-slate-700">No Jenkins Controllers Registered</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              You must register at least one Jenkins server before jobs can be displayed and triggered.
+            </p>
+            <a
+              href="/servers"
+              className="inline-flex items-center space-x-1.5 mt-4 px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition"
+            >
+              <span>Go to Jenkins Servers</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
         ) : filteredJobs.length === 0 ? (
           <div className="p-12 text-center">
-            <GitBranch className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-xs font-medium text-slate-600">No CI/CD jobs detected yet</p>
-            <p className="text-xs text-slate-400 mt-1">
-              Ensure controllers are registered and sync has completed.
+            <FolderGit2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-slate-700">
+              No Jobs Found {selectedServer ? `on '${selectedServer.name}'` : ''}
             </p>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              If you just added this Jenkins controller or created new pipelines, click below to immediately pull the latest jobs from Jenkins.
+            </p>
+            <button
+              onClick={() => syncMutation.mutate(selectedServerId)}
+              disabled={syncMutation.isPending}
+              className="inline-flex items-center space-x-1.5 mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+              <span>{syncMutation.isPending ? 'Syncing with Jenkins...' : 'Sync Now to Fetch Jobs'}</span>
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">

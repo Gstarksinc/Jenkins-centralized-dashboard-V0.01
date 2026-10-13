@@ -6,7 +6,13 @@ from sqlalchemy.pool import StaticPool
 from app.main import app as fastapi_app
 from app.db.base import Base
 from app.db.session import get_db
+from app.workers.celery_app import celery
 import app.models  # noqa: F401 - ensure models are in Base.metadata
+
+celery.conf.update(
+    task_always_eager=True,
+    task_eager_propagates=False,
+)
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
