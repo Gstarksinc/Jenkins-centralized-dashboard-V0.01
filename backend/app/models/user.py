@@ -40,8 +40,8 @@ class User(Base):
         nullable=False,
     )
 
-    roles = relationship("Role", secondary=user_roles, lazy="joined")
-    teams = relationship("Team", secondary=team_members, back_populates="members")
+    roles = relationship("Role", secondary=user_roles, lazy="selectin")
+    teams = relationship("Team", secondary=team_members, back_populates="members", lazy="selectin")
 
 
 class Team(Base):

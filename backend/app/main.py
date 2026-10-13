@@ -3,19 +3,18 @@ import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from app.config import settings
 from app.core.logging import setup_logging
 from app.api.v1.health import router as health_router
+from app.api.v1.users import router as users_router
+from app.api.v1.servers import router as servers_router
 
 setup_logging(settings.LOG_LEVEL)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup actions
     yield
-    # Shutdown actions
 
 
 app = FastAPI(
@@ -51,8 +50,10 @@ async def correlation_and_timing_middleware(request: Request, call_next):
     return response
 
 
-# Include Routers
+# Include Routers under versioned /api/v1 prefix
 app.include_router(health_router, prefix="/api/v1")
+app.include_router(users_router, prefix="/api/v1")
+app.include_router(servers_router, prefix="/api/v1")
 
 
 @app.get("/", tags=["Root"])

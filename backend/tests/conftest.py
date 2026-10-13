@@ -3,11 +3,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from app.main import app
+from app.main import app as fastapi_app
 from app.db.base import Base
 from app.db.session import get_db
+import app.models  # noqa: F401 - ensure models are in Base.metadata
 
-# In-memory SQLite database for unit tests
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
 test_engine = create_engine(
@@ -18,16 +18,16 @@ test_engine = create_engine(
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
-@pytest.fixture(scope="session")
-def db_engine():
-    # Note: SQLite does not support Postgres specific JSON/UUID directly unless mapped or Base creates tables
-    # For models testing or basic query testing
-    yield test_engine
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_database():
+    """Create all tables in the SQLite test database once for the session."""
+    Base.metadata.create_all(bind=test_engine)
+    yield
+    Base.metadata.drop_all(bind=test_engine)
 
 
 @pytest.fixture
 def db_session():
-    # Create SQLite tables for models that are SQLite-compatible or mock
     connection = test_engine.connect()
     transaction = connection.begin()
     session = TestingSessionLocal(bind=connection)
@@ -47,7 +47,7 @@ def client(db_session):
         finally:
             pass
 
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+    with TestClient(fastapi_app) as test_client:
         yield test_client
-    app.dependency_overrides.clear()
+    fastapi_app.dependency_overrides.clear()
