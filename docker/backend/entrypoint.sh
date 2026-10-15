@@ -29,5 +29,9 @@ sys.exit(1)
 echo "Applying database migrations..."
 alembic upgrade head
 
+# Bootstrap default administrator if not present
+echo "Ensuring initial administrator exists..."
+python -m app.core.bootstrap_admin --email "${ADMIN_EMAIL:-admin@company.local}" --password "${ADMIN_PASSWORD:-Admin12345!}" --name "Platform Administrator" || true
+
 echo "Starting application server..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000
