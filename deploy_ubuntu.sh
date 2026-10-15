@@ -66,16 +66,26 @@ else
     echo -e "${GREEN}✓ Existing .env detected.${NC}"
 fi
 
+# Load environment variables for deployment script usage
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
+
+ACTIVE_BACKEND_PORT="${BACKEND_PORT_HOST:-8000}"
+ACTIVE_FRONTEND_PORT="${FRONTEND_PORT_HOST:-3000}"
+STACK_PROJECT="${COMPOSE_PROJECT_NAME:-jcc}"
+
 # 4. Build and Launch Containers
-echo -e "\n${CYAN}[3/5] Building and launching application stack with Docker Compose...${NC}"
+echo -e "\n${CYAN}[3/5] Building and launching application stack [${STACK_PROJECT}] with Docker Compose...${NC}"
 docker compose down --remove-orphans 2>/dev/null || true
 docker compose up -d --build
 
 # 5. Wait for Healthcheck
-echo -e "\n${CYAN}[4/5] Waiting for services to become healthy...${NC}"
+echo -e "\n${CYAN}[4/5] Waiting for services on port ${ACTIVE_BACKEND_PORT} to become healthy...${NC}"
 for i in {1..30}; do
-    if curl -s http://0.0.0.0:8000/api/v1/health/live &> /dev/null; then
-        echo -e "${GREEN}✓ Backend API is responding!${NC}"
+    if curl -s "http://0.0.0.0:${ACTIVE_BACKEND_PORT}/api/v1/health/live" &> /dev/null; then
+        echo -e "${GREEN}✓ Backend API is responding on port ${ACTIVE_BACKEND_PORT}!${NC}"
         break
     fi
     echo -n "."
@@ -87,18 +97,18 @@ echo -e "\nApplying any pending database migrations..."
 docker compose exec -T backend alembic upgrade head || true
 
 # 6. Verification and Status Report
-echo -e "\n${CYAN}[5/5] Service Status & Verification:${NC}"
+echo -e "\n${CYAN}[5/5] Service Status & Verification for [${STACK_PROJECT}]:${NC}"
 docker compose ps
 
 SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "YOUR_SERVER_IP")
 
 echo -e "\n${GREEN}====================================================================${NC}"
-echo -e "${GREEN}  ✓ Jenkins Control Center is running on Ubuntu!                    ${NC}"
+echo -e "${GREEN}  ✓ Jenkins Control Center [${STACK_PROJECT}] is running on Ubuntu!  ${NC}"
 echo -e "${GREEN}====================================================================${NC}"
-echo -e "  • Frontend Web Dashboard : ${CYAN}http://${SERVER_IP}:3000${NC} (or http://localhost:3000)"
-echo -e "  • Backend API Docs (OpenAPI): ${CYAN}http://${SERVER_IP}:8000/docs${NC}"
-echo -e "  • Health Liveness Probe  : ${CYAN}http://${SERVER_IP}:8000/api/v1/health/live${NC}"
-echo -e "  • Health Readiness Probe : ${CYAN}http://${SERVER_IP}:8000/api/v1/health/ready${NC}"
+echo -e "  • Frontend Web Dashboard : ${CYAN}http://${SERVER_IP}:${ACTIVE_FRONTEND_PORT}${NC} (or http://localhost:${ACTIVE_FRONTEND_PORT})"
+echo -e "  • Backend API Docs (OpenAPI): ${CYAN}http://${SERVER_IP}:${ACTIVE_BACKEND_PORT}/docs${NC}"
+echo -e "  • Health Liveness Probe  : ${CYAN}http://${SERVER_IP}:${ACTIVE_BACKEND_PORT}/api/v1/health/live${NC}"
+echo -e "  • Health Readiness Probe : ${CYAN}http://${SERVER_IP}:${ACTIVE_BACKEND_PORT}/api/v1/health/ready${NC}"
 echo -e "${GREEN}====================================================================${NC}"
 echo -e "To view logs anytime: ${YELLOW}docker compose logs -f${NC}"
 echo -e "To run test suite:    ${YELLOW}./test_ubuntu.sh${NC}"

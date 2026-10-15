@@ -1,14 +1,16 @@
+name: ${COMPOSE_PROJECT_NAME:-jcc}
+
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: jcc-postgres
+    container_name: ${COMPOSE_PROJECT_NAME:-jcc}-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-jenkins_cc}
       POSTGRES_USER: ${POSTGRES_USER:-jenkins_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jenkins_secure_password_replace_me}
     ports:
-      - "0.0.0.0:5432:5432"
+      - "0.0.0.0:${POSTGRES_PORT_HOST:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,11 +21,11 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: jcc-redis
+    container_name: ${COMPOSE_PROJECT_NAME:-jcc}-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "0.0.0.0:6379:6379"
+      - "0.0.0.0:${REDIS_PORT_HOST:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -36,7 +38,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: jcc-backend
+    container_name: ${COMPOSE_PROJECT_NAME:-jcc}-backend
     restart: unless-stopped
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-development}
@@ -48,7 +50,7 @@ services:
       - SECRET_KEY_ENCRYPTION=${SECRET_KEY_ENCRYPTION:-8Z1xVj1xV8zQY7P4wN1vK6tR3bM9eL2sA5hG0yD4fUo=}
       - BACKEND_HOST=0.0.0.0
       - BACKEND_PORT=8000
-      - FRONTEND_URL=http://localhost:3000
+      - FRONTEND_URL=${FRONTEND_URL:-*}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@company.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-Admin12345!}
     depends_on:
@@ -57,7 +59,7 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "0.0.0.0:8000:8000"
+      - "0.0.0.0:${BACKEND_PORT_HOST:-8000}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/live')"]
       interval: 10s
@@ -68,7 +70,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: jcc-worker
+    container_name: ${COMPOSE_PROJECT_NAME:-jcc}-worker
     restart: unless-stopped
     command: ["celery", "-A", "app.workers.celery_app.celery", "worker", "--loglevel=info", "--concurrency=4"]
     environment:
@@ -88,7 +90,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: jcc-beat
+    container_name: ${COMPOSE_PROJECT_NAME:-jcc}-beat
     restart: unless-stopped
     command: ["celery", "-A", "app.workers.celery_app.celery", "beat", "--loglevel=info"]
     environment:
@@ -108,10 +110,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: jcc-frontend
+    container_name: ${COMPOSE_PROJECT_NAME:-jcc}-frontend
     restart: unless-stopped
     ports:
-      - "0.0.0.0:3000:80"
+      - "0.0.0.0:${FRONTEND_PORT_HOST:-3000}:80"
     depends_on:
       - backend
 
