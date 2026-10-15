@@ -17,7 +17,21 @@ def bootstrap_admin(email: str, password: str = None, display_name: str = "Platf
 
         existing = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
         if existing:
-            print(f"[!] User with email '{email}' already exists. Skipping bootstrap.")
+            if password:
+                print(f"[*] User with email '{email}' already exists. Updating password and activating account...")
+                existing.password_hash = hash_password(password)
+                existing.status = "ACTIVE"
+                existing.failed_login_attempts = 0
+                existing.locked_until = None
+                db.commit()
+                print("==================================================================")
+                print("  ✓ Platform Administrator Password Updated Successfully         ")
+                print("==================================================================")
+                print(f"  Email    : {email}")
+                print("  Password : [configured]")
+                print("==================================================================")
+            else:
+                print(f"[!] User with email '{email}' already exists. Skipping bootstrap.")
             return
 
         if not password:
