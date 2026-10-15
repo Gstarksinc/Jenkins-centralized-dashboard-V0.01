@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 
 class RoleSimpleResponse(BaseModel):
@@ -15,7 +15,7 @@ class RoleSimpleResponse(BaseModel):
 
 
 class UserCreate(BaseModel):
-    email: EmailStr
+    email: str = Field(min_length=3)
     display_name: str = Field(min_length=2, max_length=100)
     password: str = Field(min_length=8, max_length=128)
     role_id: Optional[UUID] = None

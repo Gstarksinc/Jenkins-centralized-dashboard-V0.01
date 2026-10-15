@@ -1,10 +1,10 @@
 from typing import List, Optional
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str = Field(min_length=3)
     password: str = Field(min_length=1)
 
 
