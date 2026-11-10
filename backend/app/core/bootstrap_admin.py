@@ -9,15 +9,26 @@ from app.api.v1.users import ensure_default_roles
 from app.core.security import hash_password
 
 
-def bootstrap_admin(email: str, password: str = None, display_name: str = "Platform Admin"):
-    """Idempotently bootstrap the initial Platform Administrator account."""
+def bootstrap_admin(email: str, password: str = None, display_name: str = "Platform Admin", reset_password: bool = False):
+    """Idempotently bootstrap the initial Platform Administrator account or reset password."""
     db = SessionLocal()
     try:
         ensure_default_roles(db)
 
         existing = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
         if existing:
-            print(f"[!] User with email '{email}' already exists. Skipping bootstrap.")
+            if reset_password and password:
+                existing.password_hash = hash_password(password)
+                existing.status = "ACTIVE"
+                db.commit()
+                print("==================================================================")
+                print(f"  ✓ Password for '{email}' reset successfully!                   ")
+                print("==================================================================")
+                print(f"  Email    : {email}")
+                print(f"  Password : {password}")
+                print("==================================================================")
+                return
+            print(f"[!] User with email '{email}' already exists. Use --reset-password to update.")
             return
 
         if not password:
@@ -60,6 +71,7 @@ if __name__ == "__main__":
     parser.add_argument("--email", default="admin@company.local", help="Admin email address")
     parser.add_argument("--password", default=None, help="Admin password (generated if omitted)")
     parser.add_argument("--name", default="Platform Admin", help="Display name")
+    parser.add_argument("--reset-password", action="store_true", help="Reset password if user already exists")
     args = parser.parse_args()
 
-    bootstrap_admin(email=args.email, password=args.password, display_name=args.name)
+    bootstrap_admin(email=args.email, password=args.password, display_name=args.name, reset_password=args.reset_password)
