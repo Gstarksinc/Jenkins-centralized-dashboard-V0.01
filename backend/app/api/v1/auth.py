@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from app.db.session import get_db
-from app.models.user import User, Role
+from app.models.user import User
+from app.models.role import Role
 from app.models.session import UserSession
 from app.models.audit import AuditEvent
 from app.schemas.auth import LoginRequest, ChangePasswordRequest, UserProfileResponse, AuditEventResponse
@@ -69,7 +70,7 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     # Dynamic self-heal fallback: if user does not exist but default admin credentials supplied
     default_admin_email = settings.ADMIN_EMAIL.strip().lower()
     if not user and normalized_email == default_admin_email and payload.password == settings.ADMIN_PASSWORD:
-        admin_role = db.execute(select(Role).where(Role.name == "Admin")).scalar_one_or_none()
+        admin_role = db.execute(select(Role).where(Role.name.in_(["Platform Administrator", "Admin"]))).scalars().first()
         user = User(
             email=settings.ADMIN_EMAIL,
             password_hash=hash_password(settings.ADMIN_PASSWORD),
