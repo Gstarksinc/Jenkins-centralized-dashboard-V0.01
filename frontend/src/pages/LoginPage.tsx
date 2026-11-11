@@ -21,7 +21,7 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       navigate(from, { replace: true });
     } catch (err: any) {
       setErrorMessage(err.message || 'Invalid email or password.');
@@ -65,7 +65,7 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1.5">
                 Work Email Address

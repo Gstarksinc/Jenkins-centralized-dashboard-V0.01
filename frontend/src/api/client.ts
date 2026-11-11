@@ -39,7 +39,15 @@ export async function apiFetch<T>(
     let errorDetail = response.statusText;
     try {
       const errJson = await response.json();
-      errorDetail = errJson.detail || errJson.message || JSON.stringify(errJson);
+      if (typeof errJson.detail === 'string') {
+        errorDetail = errJson.detail;
+      } else if (Array.isArray(errJson.detail)) {
+        errorDetail = errJson.detail.map((e: any) => e.msg || JSON.stringify(e)).join(', ');
+      } else if (errJson.detail) {
+        errorDetail = JSON.stringify(errJson.detail);
+      } else if (errJson.message) {
+        errorDetail = errJson.message;
+      }
     } catch {
       // ignore
     }
